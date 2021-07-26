@@ -1,21 +1,41 @@
+import random
 import turtle
 from playsound import playsound
+
+
+def random_vector():
+    return 1 if random.random() < 0.5 else -1
 
 
 class Ball(turtle.Turtle):
     dx: float
     dy: float
+    reflect_count: int
+
+    def __init__(self, x, y, dx, dy):
+        super().__init__()
+        self.goto(x, y)
+        self.dx = dx * random_vector()
+        self.dy = dy * random_vector()
+        self.reflect_count = 0
 
     def move(self):
-        self.setx(self.xcor() + self.dx)
-        self.sety(self.ycor() + self.dy)
+        self.setx(self.xcor() + self.dx + (self.dx * self.reflect_count / 20))
+        self.sety(self.ycor() + self.dy + (self.dy * self.reflect_count / 20))
 
     def reflect_x(self):
         self.dx *= -1
+        self.reflect_count += 1
 
     def reflect_y(self):
         self.dy *= -1
-        playsound("bounce.wav")
+        self.reflect_count += 1
+        playsound("./resources/bounce.wav")
+
+    def reset(self):
+        self.goto(0, 0)
+        self.reflect_count = 0
+        self.dx *= random_vector()
 
 
 class ScoreBoard(turtle.Turtle):
@@ -72,14 +92,11 @@ def create_score_board():
 
 
 def create_ball(color="white", x=0, y=0, dx=0.0, dy=0.0):
-    ball = Ball()
+    ball = Ball(x, y, dx, dy)
     ball.speed(0)
     ball.shape("square")
     ball.color(color)
     ball.penup()
-    ball.goto(x, y)
-    ball.dx = dx
-    ball.dy = dy
     return ball
 
 
@@ -89,6 +106,8 @@ class Pong:
     paddle_a: turtle.Turtle
     paddle_b: turtle.Turtle
     ball: Ball
+    temp_stop: bool
+    stop: bool
 
     def __init__(self, title="Pong", speeds=0.25):
         self.score_a = 0
@@ -98,6 +117,8 @@ class Pong:
         self.paddle_b = create_paddle(x=350, y=0)
         self.ball = create_ball(dx=speeds, dy=speeds)
         self.score_board = create_score_board()
+        self.temp_stop = True
+        self.stop = False
 
     def paddle_a_up(self):
         self.paddle_a.sety(self.paddle_a.ycor() + 30)
@@ -111,16 +132,27 @@ class Pong:
     def paddle_b_down(self):
         self.paddle_b.sety(self.paddle_b.ycor() - 30)
 
+    def pause(self):
+        self.temp_stop = not self.temp_stop
+
+    def close(self):
+        self.stop = True
+
     def listen(self):
         self.screen.listen()
         self.screen.onkeypress(self.paddle_a_up, "w")
         self.screen.onkeypress(self.paddle_a_down, "s")
         self.screen.onkeypress(self.paddle_b_up, "Up")
         self.screen.onkeypress(self.paddle_b_down, "Down")
+        self.screen.onkeypress(self.pause, "space")
+        self.screen.onkeypress(self.close, "Escape")
 
     def play(self):
-        while True:
+        while not self.stop:
             self.screen.update()
+
+            if self.temp_stop:
+                continue
             self.ball.move()
 
             # Border checking
@@ -133,12 +165,12 @@ class Pong:
                 self.ball.reflect_y()
 
             if self.ball.xcor() > 390:
-                self.ball.goto(0, 0)
+                self.ball.reset()
                 self.ball.reflect_x()
                 self.score_board.increase_a()
 
             if self.ball.xcor() < -390:
-                self.ball.goto(0, 0)
+                self.ball.reset()
                 self.ball.reflect_x()
                 self.score_board.increase_b()
 
